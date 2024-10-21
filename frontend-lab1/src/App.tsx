@@ -94,7 +94,12 @@ const App: React.FC = () => {
 
   return (
     <div className="flex items-center justify-center flex-col">
-      <h1 className="text-red-600">Экспертная система DnD</h1>
+      <div className="flex items-center gap-14">
+        <a className="flex text-green-600" href={`/lab2`}>
+          Следующая лабораторная
+        </a>
+        <h1 className="text-red-600">Экспертная система DnD</h1>
+      </div>
 
       {/* Блок с выводом фактов */}
       <div className="flex flex-col pl-2 pt-2 mt-4 overflow-auto h-[200px] w-[350px] border-gray-400 border-2">
