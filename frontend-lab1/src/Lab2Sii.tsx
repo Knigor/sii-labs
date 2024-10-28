@@ -172,7 +172,7 @@ export default function Lab2Sii() {
               // Сохраняем каждое условие в tempConditions в состояние true
               // Теперь обновляем isMatch на true там, где есть совпадение
 
-              let localCount = 0; // Локальный счётчик совпадений
+              let localCount = 0;
               conditionsArray.forEach((condition) => {
                 fact.forEach((fact) => {
                   if (`${fact.key}=${fact.value}`.includes(condition)) {
@@ -209,14 +209,14 @@ export default function Lab2Sii() {
       setIsVisibleResult(true); // Показываем результаты
     } else {
       console.log("Совпадений не найдено");
-      setIsVisibleResult(false); // Не показываем результаты, если совпадений нет
+      setIsVisibleResult(false);
     }
   };
 
   // очищаем результаты
   const clearResults = () => {
     setIsVisibleResult(false);
-    setResults([]); // Очистка результатов
+    setResults([]);
     setIsCheck(undefined);
     setTests([]);
   };
