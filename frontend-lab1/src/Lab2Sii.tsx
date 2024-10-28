@@ -15,11 +15,20 @@ export default function Lab2Sii() {
   const [facts, setFacts] = useState<string[]>([]);
   const [fact, setFact] = useState<Fact[]>([]);
   const [keyInput, setKeyInput] = useState<string>("");
+  const [keyInputGoal, setKeyInputGoal] = useState<string>("");
+  const [valueInputGoal, setValueInputGoal] = useState<string>("");
   const [valueInput, setValueInput] = useState<string>("");
   const [isVisibleResult, setIsVisibleResult] = useState<boolean>(false);
   const [results, setResults] = useState<string[]>([]);
   const [tests, setTests] = useState<string[]>([]);
   const [isCheck, setIsCheck] = useState<boolean | undefined>(undefined);
+  const [goal, setGoal] = useState<Fact>({ key: "", value: "" });
+  const [newGoal, setNewGoal] = useState<Fact | null>(null);
+  const [showStatus, setShowStatus] = useState<boolean>(false);
+  const [tempConditions, setTempConditions] = useState<
+    { condition: string; isMatch: boolean }[]
+  >([]);
+  const [count, setCount] = useState<number>(0);
 
   // получаем правила
   useEffect(() => {
@@ -28,15 +37,7 @@ export default function Lab2Sii() {
       .then((data) => setRules(data));
   }, []);
 
-  // получаем факты
-  useEffect(() => {
-    fetch("/facts.json")
-      .then((response) => response.json())
-      .then((data) => setFacts(data));
-  }, []);
-
   // добавляем факт
-
   const addFact = () => {
     if (keyInput && valueInput) {
       // Проверяем, существует ли ключ в фактах
@@ -58,83 +59,158 @@ export default function Lab2Sii() {
     }
   };
 
+  // добавляем цель
+  const addGoal = () => {
+    if (keyInputGoal && valueInputGoal) {
+      // Сохраняем цель
+      setGoal({ key: keyInputGoal, value: valueInputGoal });
+
+      // Очищаем поля ввода
+      setKeyInputGoal("");
+      setValueInputGoal("");
+    }
+  };
+
+  // очищаем цель
+  const clearGoal = () => {
+    setGoal({ key: "", value: "" }); // Очистить цель
+  };
+
   // очищаем факты
   const clearFacts = () => {
     setFact([]);
   };
 
-  // Проверка или опровержение
-
-  const checkTests = () => {
-    // Преобразуем массив строк в массив булевых значений
-  };
-
+  // логика выполнения правила
   // логика выполнения правила
   const handleResult = () => {
-    let foundResult: string[] | null = null;
+    setTempConditions([]);
+    const newConditions: { condition: string; isMatch: boolean }[] = [];
 
-    for (const rule of rules) {
-      // Убедитесь, что мы используем правильное имя свойства
-      if (rule.TextRule) {
-        console.log(`Проверяем правило: ${rule.TextRule}`);
+    // функция которая находит совпадение после ТО
 
-        // Проверяем, соответствует ли правило фактам
-        const conditionMatches = fact.every((f) => {
-          const condition = `${f.key}=${f.value}`;
-          console.log(`Проверка условия: ${condition}`);
-          return rule.TextRule.includes(condition);
+    function findMatchingRule(
+      rules: { TextRule: string }[],
+      goal: { key: string; value: string }
+    ) {
+      return rules.find((rule) => {
+        const condition = `${goal.key}=${goal.value}`;
+        const parts = rule.TextRule.split("ТО");
+        if (parts.length > 1) {
+          const afterThen = parts[1].trim();
+          return afterThen.includes(condition);
+        }
+        return false;
+      });
+    }
+
+    const matchingRule = findMatchingRule(rules, goal);
+
+    console.log(matchingRule);
+
+    if (matchingRule) {
+      // Извлекаем условия между 'ЕСЛИ' и 'ТО'
+      const conditionsPart = matchingRule.TextRule.split("ЕСЛИ")[1]
+        .split("ТО")[0]
+        .trim();
+
+      // Делим условия на отдельные части по 'И'
+      const conditionsArray = conditionsPart
+        .split("И")
+        .map((cond) => cond.trim());
+
+      // Сохраняем каждое условие в newConditions
+      conditionsArray.forEach((condition) => {
+        newConditions.push({ condition, isMatch: false });
+      });
+
+      console.log("Новые условия:\n", newConditions);
+
+      // проверяем на соответсвие фактов, если такие факты есть, то isMatch = true
+      newConditions.forEach((condition) => {
+        fact.forEach((fact) => {
+          if (`${fact.key}=${fact.value}`.includes(condition.condition)) {
+            condition.isMatch = true;
+          }
         });
+      });
 
-        console.log(`Совпадает ли правило: ${conditionMatches}`);
+      setShowStatus(newConditions.every((condition) => condition.isMatch));
+      // Проверяем, все условия совпадают
 
-        //  находим условие после ТО
-        if (conditionMatches) {
-          // Проверяем его на уникальность, чтобы искало после ТО
-          const actionMatch = rule.TextRule.match(/ТО (.+)/);
-          if (actionMatch && actionMatch[1]) {
-            // ищем уже после ЕСЛИ
-            const condition = rule.TextRule.match(/ЕСЛИ (.+?) ТО/);
-            if (condition) {
-              const conditions = condition[1].split(" И ");
-              foundResult = conditions;
-            }
+      if (showStatus) {
+        console.log("Все условия совпадают");
+      } else {
+        console.log("Не все условия совпадают");
+        newConditions.forEach((condition) => {
+          if (condition.isMatch === false) {
+            console.log(`Значение:`, condition.condition);
+            const [key, value] = condition.condition.split("=");
+            const goalTwo = { key: key, value: value };
 
-            break;
-          }
-        }
-      }
-    }
+            const matchingRuleTwo = findMatchingRule(rules, goalTwo);
+            console.log(matchingRuleTwo);
 
-    if (foundResult) {
-      for (const result of foundResult) {
-        const [first, second] = result.split("="); // Удаляем пробелы с помощью map и trim
-        console.log(`Ключ: ${first} Значение: ${second}`);
-        for (const key of Object.keys(facts)) {
-          const values = facts[key];
+            if (matchingRuleTwo) {
+              const conditionsPart = matchingRuleTwo.TextRule.split("ЕСЛИ")[1]
+                .split("ТО")[0]
+                .trim();
 
-          if (key === first) {
-            for (const subkey in values) {
-              if (subkey === second) {
-                setTests((prevTests) => [
-                  ...prevTests,
-                  `${subkey} = ${values[subkey]}`,
+              // Делим условия на отдельные части по 'И'
+              const conditionsArray = conditionsPart
+                .split("И")
+                .map((cond) => cond.trim());
+
+              // заполняем tempConditions значениями false
+              conditionsArray.forEach((condition) => {
+                setTempConditions((prevConditions) => [
+                  ...prevConditions,
+                  { condition, isMatch: false },
                 ]);
-              }
+              });
 
-              // results.push(`${subkey}: ${values[subkey]}`);
+              // Сохраняем каждое условие в tempConditions в состояние true
+              // Теперь обновляем isMatch на true там, где есть совпадение
+
+              let localCount = 0; // Локальный счётчик совпадений
+              conditionsArray.forEach((condition) => {
+                fact.forEach((fact) => {
+                  if (`${fact.key}=${fact.value}`.includes(condition)) {
+                    console.log(condition);
+                    console.log("Совпадение!");
+                    localCount++;
+
+                    // Обновляем только тот объект, где условие выполнено
+                    setTempConditions((prevConditions) =>
+                      prevConditions.map((item) =>
+                        item.condition === condition
+                          ? { ...item, isMatch: true }
+                          : item
+                      )
+                    );
+                  }
+                });
+              });
+              if (localCount === 2) {
+                console.log("абоба", key, value, localCount);
+                setFact((prevFact) => [
+                  ...prevFact,
+                  { key: key, value: value },
+                ]);
+                localCount = 0;
+              }
             }
+
+            console.log("Новые условия 2:\n", tempConditions);
           }
-        }
+        });
       }
 
-      // проверяем на истинность или ложность
-
-      setResults((prevResults) => [...prevResults, ...foundResult, ...tests]);
+      setIsVisibleResult(true); // Показываем результаты
     } else {
-      setResults([]);
+      console.log("Совпадений не найдено");
+      setIsVisibleResult(false); // Не показываем результаты, если совпадений нет
     }
-
-    setIsVisibleResult(true);
   };
 
   // очищаем результаты
@@ -145,33 +221,27 @@ export default function Lab2Sii() {
     setTests([]);
   };
 
-  // отображаем результат истинности или ложности
-
-  useEffect(() => {
-    for (const test of tests) {
-      const [first, second] = test.split("=");
-      console.log("Значение", second);
-      if (second.trim() === "false") {
-        setIsCheck(false);
-      } else {
-        setIsCheck(true);
-      }
-    }
-  }, [tests]);
-
   return (
     <>
       <a className="flex justify-start mt-4 ml-4 text-green-600" href={`/`}>
         Предыдущая лабораторная
       </a>
-      <div className="flex justify-center items-center flex-col ">
+      <div className="flex justify-center items-center flex-col mb-12">
         <h1>Лабораторная работа №2</h1>
 
         {/* Блок с выводом фактов */}
         <div className="flex flex-col pl-2 pt-2 mt-4 overflow-auto h-[200px] w-[350px] border-gray-400 border-2">
+          {fact.length !== 0 && <h2>Исходные ситуации:</h2>}
           {fact.map((fact, index) => (
             <p key={index}>{`${fact.key} = ${fact.value}`}</p>
           ))}
+          {/* Отображение цели */}
+          {goal && (
+            <div className="mt-4">
+              <h2>Цель:</h2>
+              <p>{`${goal.key} = ${goal.value}`}</p>
+            </div>
+          )}
         </div>
 
         {fact.length ? (
@@ -188,21 +258,22 @@ export default function Lab2Sii() {
             {results.length > 0 ? (
               results.map((result, index) => <p key={index}>{result}</p>)
             ) : (
-              <p>Нет соответствующих действий</p>
-            )}
-            {results.length > 0
-              ? tests.map((test, index) => <p key={index}>{test}</p>)
-              : null}
-            {isCheck === undefined ? null : isCheck ? (
-              <p className="text-green-600">Результат: Истинно</p>
-            ) : (
-              <p className="text-red-600">Результат: Ложно</p>
+              <>
+                {showStatus ? (
+                  <p className="text-green-600">Цель достижима</p>
+                ) : (
+                  <p className="text-red-600">Цель не достижима</p>
+                )}
+              </>
             )}
           </div>
         )}
 
         {/* Блок с вводом фактов: Ключ и значение */}
-        <div className="flex items-center justify-center flex-wrap gap-6 mt-6">
+        <h1 className="text-purple-600 mt-4 font-bold">
+          Добавьте правила для исходной ситуации
+        </h1>
+        <div className="flex items-center justify-center flex-wrap gap-6 mt-4">
           <div className="flex flex-col">
             <label className="text-solid">Введите ключ</label>
             <input
@@ -234,6 +305,7 @@ export default function Lab2Sii() {
           >
             Очистить факт(ы)
           </button>
+
           {isVisibleResult ? (
             <button
               onClick={clearResults}
@@ -242,6 +314,40 @@ export default function Lab2Sii() {
               Очистить результат
             </button>
           ) : null}
+        </div>
+
+        <h1 className="text-purple-600 mt-4 font-bold">Задать цель</h1>
+        <div className="flex flex-wrap gap-6">
+          <div className="flex flex-col">
+            <label className="text-solid">Введите ключ</label>
+            <input
+              type="text"
+              value={keyInputGoal}
+              onChange={(e) => setKeyInputGoal(e.target.value)}
+              className="bg-gray-50 border focus:outline-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="text-solid">Введите значение</label>
+            <input
+              type="text"
+              value={valueInputGoal}
+              onChange={(e) => setValueInputGoal(e.target.value)}
+              className="bg-gray-50 border focus:outline-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            />
+          </div>
+          <button
+            onClick={addGoal}
+            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-[200px] h-12 mt-4"
+          >
+            Добавить цель
+          </button>
+          <button
+            onClick={clearGoal}
+            className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-[200px] h-12 mt-4"
+          >
+            Очистить цель
+          </button>
         </div>
       </div>
     </>
